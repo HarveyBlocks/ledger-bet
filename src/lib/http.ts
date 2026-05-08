@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { AppError } from "./errors.ts";
+import { AppError } from "@/lib/errors";
 
 export function ok(data: unknown, status = 200) {
   return NextResponse.json(data, { status });

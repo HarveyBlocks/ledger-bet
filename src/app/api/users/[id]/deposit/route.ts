@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
-import { handleRouteError, ok } from "../../../../../lib/http.ts";
-import { depositToUser } from "../../../../../lib/services/accounting.ts";
-import { parseJson, depositSchema } from "../../../../../lib/validation.ts";
+import { handleRouteError, ok } from "@/lib/http";
+import { depositToUser } from "@/lib/services/accounting";
+import { parseJson, depositSchema } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{

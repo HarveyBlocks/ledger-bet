@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 
-import { type SettlementResult } from "../../../../../lib/domain.ts";
-import { handleRouteError, ok } from "../../../../../lib/http.ts";
-import { settleBet } from "../../../../../lib/services/accounting.ts";
-import { parseJson, settleSchema } from "../../../../../lib/validation.ts";
+import { type SettlementResult } from "@/lib/domain";
+import { handleRouteError, ok } from "@/lib/http";
+import { settleBet } from "@/lib/services/accounting";
+import { parseJson, settleSchema } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{

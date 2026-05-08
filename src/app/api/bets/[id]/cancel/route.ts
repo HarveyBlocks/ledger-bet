@@ -1,5 +1,5 @@
-import { handleRouteError, ok } from "../../../../../lib/http.ts";
-import { cancelBet } from "../../../../../lib/services/accounting.ts";
+import { handleRouteError, ok } from "@/lib/http";
+import { cancelBet } from "@/lib/services/accounting";
 
 type RouteContext = {
   params: Promise<{

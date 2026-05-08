@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { prisma } from "../db.ts";
+import { prisma } from "@/lib/db";
 import {
   BET_STATUS,
   IDEMPOTENCY_SCOPE,
@@ -8,9 +8,9 @@ import {
   SETTLEMENT_RESULT,
   type IdempotencyScope,
   type SettlementResult,
-} from "../domain.ts";
-import { ConflictError, NotFoundError } from "../errors.ts";
-import { stableStringify } from "../serialize.ts";
+} from "@/lib/domain";
+import { ConflictError, NotFoundError } from "@/lib/errors";
+import { stableStringify } from "@/lib/serialize";
 import {
   appendLedgerEntry,
   assertPositiveAmount,
@@ -20,7 +20,7 @@ import {
   recomputeAndPersistBalance,
   resolveIdempotentReplay,
   storeIdempotentResult,
-} from "./accounting-helpers.ts";
+} from "@/lib/services/accounting-helpers";
 
 type DepositPayload = {
   amount: number;

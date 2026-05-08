@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
-import { handleRouteError, ok } from "../../../lib/http.ts";
-import { listBets, placeBet } from "../../../lib/services/accounting.ts";
-import { betSchema, parseJson } from "../../../lib/validation.ts";
+import { handleRouteError, ok } from "@/lib/http";
+import { listBets, placeBet } from "@/lib/services/accounting";
+import { betSchema, parseJson } from "@/lib/validation";
 
 export async function GET() {
   try {

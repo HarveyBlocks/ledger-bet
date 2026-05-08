@@ -28,8 +28,8 @@ Ledger Bet is a simplified prediction-market demo built with `Next.js`, `Prisma`
 - `src/lib/services`: transactional business logic
 - `src/lib`: db client, domain constants, validation, errors
 - `prisma/schema.prisma`: database schema
-- `prisma/seed.mjs`: static user seed
-- `tests`: core automated test coverage
+- `prisma/seed.ts`: static user seed
+- `tests`: core automated test coverage and isolated test database setup
 - `docs/implementation-plan.md`: implementation plan
 
 ## Local Setup
@@ -61,7 +61,7 @@ npx prisma db push
 5. Seed static users:
 
 ```bash
-node prisma/seed.mjs
+npx tsx prisma/seed.ts
 ```
 
 6. Start development server:
@@ -191,6 +191,8 @@ Run tests:
 ```bash
 npm run test
 ```
+
+The test suite uses a dedicated `Vitest` setup module that initializes a separate SQLite test database before the suite runs, instead of embedding Prisma bootstrap logic inside each test file.
 
 Run production build:
 

@@ -1,5 +1,5 @@
-import { ok, handleRouteError } from "../../../lib/http.ts";
-import { listUsers } from "../../../lib/services/accounting.ts";
+import { ok, handleRouteError } from "@/lib/http";
+import { listUsers } from "@/lib/services/accounting";
 
 export async function GET() {
   try {

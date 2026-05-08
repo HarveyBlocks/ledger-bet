@@ -1,4 +1,4 @@
-import seedUsers from "./seed-data.json" with { type: "json" };
+import seedUsers from "./seed-data.json";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

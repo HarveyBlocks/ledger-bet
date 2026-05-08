@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
-import { IDEMPOTENCY_SCOPE, type IdempotencyScope, LEDGER_ENTRY_TYPE } from "../domain.ts";
-import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
+import { IDEMPOTENCY_SCOPE, type IdempotencyScope, LEDGER_ENTRY_TYPE } from "@/lib/domain";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 
 export type TransactionClient = Prisma.TransactionClient;
 

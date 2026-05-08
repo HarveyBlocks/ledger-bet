@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
-import { handleRouteError, ok } from "../../../../lib/http.ts";
-import { ValidationError } from "../../../../lib/errors.ts";
-import { reconcileUser } from "../../../../lib/services/accounting.ts";
+import { handleRouteError, ok } from "@/lib/http";
+import { ValidationError } from "@/lib/errors";
+import { reconcileUser } from "@/lib/services/accounting";
 
 export async function GET(request: NextRequest) {
   try {
