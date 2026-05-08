@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 
 import { handleRouteError, ok } from "@/lib/http";
 import { depositToUser } from "@/lib/services/accounting";
-import { parseJson, depositSchema } from "@/lib/validation";
+import { parseJson, depositSchema, parsePositiveInt } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const body = parseJson(depositSchema, await request.json());
-    const result = await depositToUser(Number(id), body, request.headers.get("Idempotency-Key"));
+    const userId = parsePositiveInt(id, "userId");
+    const result = await depositToUser(userId, body, request.headers.get("Idempotency-Key"));
     return ok(result.body, result.status);
   } catch (error) {
     return handleRouteError(error);

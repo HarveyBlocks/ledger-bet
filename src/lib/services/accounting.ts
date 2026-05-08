@@ -1,15 +1,15 @@
-import { Prisma } from "@prisma/client";
-
-import { prisma } from "@/lib/db";
-import {
-  BET_STATUS,
-  IDEMPOTENCY_SCOPE,
-  LEDGER_ENTRY_TYPE,
-  SETTLEMENT_RESULT,
-  type IdempotencyScope,
-  type SettlementResult,
-} from "@/lib/domain";
+import { BET_STATUS, IDEMPOTENCY_SCOPE, LEDGER_ENTRY_TYPE, SETTLEMENT_RESULT, type SettlementResult } from "@/lib/domain";
 import { ConflictError, NotFoundError } from "@/lib/errors";
+import { toDomainBet, toDomainLedgerEntry, toDomainUser } from "@/lib/mappers";
+import { buildStatusCounts, computeLedgerBalance, detectReconcileAnomalies } from "@/lib/reconciliation";
+import {
+  createBet,
+  getUserWithHistory,
+  listBetsOrdered,
+  listUsersOrdered,
+  runInTransaction,
+  updateBetStatus,
+} from "@/lib/repositories/accounting-repository";
 import { stableStringify } from "@/lib/serialize";
 import {
   appendLedgerEntry,
@@ -37,18 +37,11 @@ function payoutForWin(amount: number) {
 }
 
 export async function listUsers() {
-  return prisma.user.findMany({
-    orderBy: { id: "asc" },
-  });
+  return listUsersOrdered();
 }
 
 export async function listBets() {
-  return prisma.bet.findMany({
-    include: {
-      user: true,
-    },
-    orderBy: { id: "desc" },
-  });
+  return listBetsOrdered();
 }
 
 export async function depositToUser(userId: number, payload: DepositPayload, idempotencyKey?: string | null) {
@@ -56,7 +49,7 @@ export async function depositToUser(userId: number, payload: DepositPayload, ide
   const key = ensureIdempotencyKey(idempotencyKey);
   const fingerprint = stableStringify({ userId, ...payload });
 
-  return prisma.$transaction(async (tx) => {
+  return runInTransaction(async (tx) => {
     const replay = await resolveIdempotentReplay(tx, IDEMPOTENCY_SCOPE.DEPOSIT, key, fingerprint);
     if (replay) {
       return replay;
@@ -96,7 +89,7 @@ export async function placeBet(payload: BetPayload, idempotencyKey?: string | nu
   const key = ensureIdempotencyKey(idempotencyKey);
   const fingerprint = stableStringify(payload);
 
-  return prisma.$transaction(async (tx) => {
+  return runInTransaction(async (tx) => {
     const replay = await resolveIdempotentReplay(tx, IDEMPOTENCY_SCOPE.BET, key, fingerprint);
     if (replay) {
       return replay;
@@ -108,13 +101,11 @@ export async function placeBet(payload: BetPayload, idempotencyKey?: string | nu
       throw new ConflictError("Insufficient balance", "INSUFFICIENT_BALANCE");
     }
 
-    const bet = await tx.bet.create({
-      data: {
-        userId: payload.userId,
-        gameId: payload.gameId,
-        amount: payload.amount,
-        status: BET_STATUS.PLACED,
-      },
+    const bet = await createBet(tx, {
+      userId: payload.userId,
+      gameId: payload.gameId,
+      amount: payload.amount,
+      status: BET_STATUS.PLACED,
     });
 
     await appendLedgerEntry(tx, {
@@ -150,7 +141,7 @@ export async function placeBet(payload: BetPayload, idempotencyKey?: string | nu
 }
 
 export async function settleBet(betId: number, result: SettlementResult) {
-  return prisma.$transaction(async (tx) => {
+  return runInTransaction(async (tx) => {
     const bet = await findBetOrThrow(tx, betId);
 
     if (bet.status !== BET_STATUS.PLACED) {
@@ -167,12 +158,9 @@ export async function settleBet(betId: number, result: SettlementResult) {
       });
     }
 
-    const updatedBet = await tx.bet.update({
-      where: { id: betId },
-      data: {
-        status: BET_STATUS.SETTLED,
-        settlementResult: result,
-      },
+    const updatedBet = await updateBetStatus(tx, betId, {
+      status: BET_STATUS.SETTLED,
+      settlementResult: result,
     });
 
     const balance = await recomputeAndPersistBalance(tx, bet.userId);
@@ -188,7 +176,7 @@ export async function settleBet(betId: number, result: SettlementResult) {
 }
 
 export async function cancelBet(betId: number) {
-  return prisma.$transaction(async (tx) => {
+  return runInTransaction(async (tx) => {
     const bet = await findBetOrThrow(tx, betId);
 
     if (bet.status !== BET_STATUS.PLACED) {
@@ -203,11 +191,8 @@ export async function cancelBet(betId: number) {
       note: "Bet cancelled and refunded",
     });
 
-    const updatedBet = await tx.bet.update({
-      where: { id: betId },
-      data: {
-        status: BET_STATUS.CANCELLED,
-      },
+    const updatedBet = await updateBetStatus(tx, betId, {
+      status: BET_STATUS.CANCELLED,
     });
 
     const balance = await recomputeAndPersistBalance(tx, bet.userId);
@@ -222,83 +207,23 @@ export async function cancelBet(betId: number) {
 }
 
 export async function reconcileUser(userId: number) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  const result = await getUserWithHistory(userId);
+  const user = result.user;
 
   if (!user) {
     throw new NotFoundError("User not found", "USER_NOT_FOUND");
   }
 
-  const [ledgerEntries, bets] = await Promise.all([
-    prisma.ledgerEntry.findMany({
-      where: { userId },
-      orderBy: { id: "asc" },
-    }),
-    prisma.bet.findMany({
-      where: { userId },
-      orderBy: { id: "asc" },
-    }),
-  ]);
-
-  const computedBalance = ledgerEntries.reduce((sum, entry) => sum + entry.amountDelta, 0);
-
-  const statusCounts = {
-    PLACED: bets.filter((bet) => bet.status === BET_STATUS.PLACED).length,
-    SETTLED: bets.filter((bet) => bet.status === BET_STATUS.SETTLED).length,
-    CANCELLED: bets.filter((bet) => bet.status === BET_STATUS.CANCELLED).length,
-  };
-
-  const anomalies: string[] = [];
-
-  if (user.balance !== computedBalance) {
-    anomalies.push("Cached balance does not match ledger-derived balance");
-  }
-
-  const entriesByBetId = new Map<number, typeof ledgerEntries>();
-
-  for (const entry of ledgerEntries) {
-    if (entry.betId === null) {
-      continue;
-    }
-
-    const bucket = entriesByBetId.get(entry.betId) ?? [];
-    bucket.push(entry);
-    entriesByBetId.set(entry.betId, bucket);
-  }
-
-  for (const bet of bets) {
-    const relatedEntries = entriesByBetId.get(bet.id) ?? [];
-    const debitEntries = relatedEntries.filter((entry) => entry.type === LEDGER_ENTRY_TYPE.BET_DEBIT);
-    const refundEntries = relatedEntries.filter((entry) => entry.type === LEDGER_ENTRY_TYPE.BET_REFUND);
-    const payoutEntries = relatedEntries.filter((entry) => entry.type === LEDGER_ENTRY_TYPE.BET_PAYOUT);
-
-    if (debitEntries.length !== 1) {
-      anomalies.push(`Bet ${bet.id} has ${debitEntries.length} debit entries`);
-    }
-
-    if (bet.status === BET_STATUS.CANCELLED && refundEntries.length !== 1) {
-      anomalies.push(`Cancelled bet ${bet.id} has ${refundEntries.length} refund entries`);
-    }
-
-    if (bet.status !== BET_STATUS.CANCELLED && refundEntries.length > 0) {
-      anomalies.push(`Non-cancelled bet ${bet.id} has unexpected refund entries`);
-    }
-
-    if (bet.status === BET_STATUS.SETTLED && bet.settlementResult === SETTLEMENT_RESULT.WIN) {
-      if (payoutEntries.length !== 1) {
-        anomalies.push(`Winning settled bet ${bet.id} has ${payoutEntries.length} payout entries`);
-      }
-    }
-
-    if (bet.status === BET_STATUS.SETTLED && bet.settlementResult === SETTLEMENT_RESULT.LOSE && payoutEntries.length > 0) {
-      anomalies.push(`Losing settled bet ${bet.id} has unexpected payout entries`);
-    }
-
-    if (payoutEntries.length > 1) {
-      anomalies.push(`Bet ${bet.id} appears to have duplicate settlement payouts`);
-    }
-  }
+  const ledgerEntries = result.ledgerEntries.map(toDomainLedgerEntry);
+  const bets = result.bets.map(toDomainBet);
+  const domainUser = toDomainUser(user);
+  const computedBalance = computeLedgerBalance(ledgerEntries);
+  const statusCounts = buildStatusCounts(bets);
+  const anomalies = detectReconcileAnomalies({
+    user: domainUser,
+    bets,
+    ledgerEntries,
+  });
 
   return {
     userId,

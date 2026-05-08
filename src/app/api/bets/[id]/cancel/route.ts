@@ -1,5 +1,6 @@
 import { handleRouteError, ok } from "@/lib/http";
 import { cancelBet } from "@/lib/services/accounting";
+import { parsePositiveInt } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{
@@ -10,7 +11,8 @@ type RouteContext = {
 export async function POST(_: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const result = await cancelBet(Number(id));
+    const betId = parsePositiveInt(id, "betId");
+    const result = await cancelBet(betId);
     return ok(result, 200);
   } catch (error) {
     return handleRouteError(error);

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { parseApiResponse } from "@/lib/api-client";
+import type { ReconcileAnomaly } from "@/lib/types";
 
 type User = {
   id: number;
@@ -27,7 +29,7 @@ type ReconcileResponse = {
   computedBalance: number;
   isConsistent: boolean;
   statusCounts: Record<string, number>;
-  anomalies: string[];
+  anomalies: ReconcileAnomaly[];
 };
 
 type Snapshot = {
@@ -37,13 +39,7 @@ type Snapshot = {
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message ?? "Request failed");
-  }
-
-  return data;
+  return parseApiResponse<T>(response);
 }
 
 export function Dashboard() {
@@ -121,11 +117,7 @@ export function Dashboard() {
           },
           body: JSON.stringify({ amount: depositAmount }),
         });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message ?? "Deposit failed");
-        }
-        return data;
+        return parseApiResponse(response);
       });
     });
   }
@@ -147,11 +139,7 @@ export function Dashboard() {
             amount: betAmount,
           }),
         });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message ?? "Bet failed");
-        }
-        return data;
+        return parseApiResponse(response);
       });
     });
   }
@@ -163,11 +151,7 @@ export function Dashboard() {
           const response = await fetch(`/api/bets/${betId}/cancel`, {
             method: "POST",
           });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.message ?? "Cancel failed");
-          }
-          return data;
+          return parseApiResponse(response);
         }
 
         const result = action === "settle-win" ? "WIN" : "LOSE";
@@ -178,11 +162,7 @@ export function Dashboard() {
           },
           body: JSON.stringify({ result }),
         });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message ?? "Settle failed");
-        }
-        return data;
+        return parseApiResponse(response);
       });
     });
   }

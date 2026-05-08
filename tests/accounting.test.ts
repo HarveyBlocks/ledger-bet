@@ -160,6 +160,6 @@ describe("accounting service", () => {
 
     const reconcile = await reconcileUser(alice.id);
     expect(reconcile.isConsistent).toBe(false);
-    expect(reconcile.anomalies.some((item) => item.includes("Cached balance"))).toBe(true);
+    expect(reconcile.anomalies.some((item) => item.code === "BALANCE_MISMATCH")).toBe(true);
   });
 });

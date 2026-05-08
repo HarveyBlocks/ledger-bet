@@ -5,7 +5,12 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    env: {
+      DATABASE_URL: "file:./test.db",
+      NODE_ENV: "test",
+    },
     environment: "node",
+    fileParallelism: false,
     globals: true,
     include: ["tests/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],

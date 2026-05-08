@@ -1,14 +1,12 @@
 import { execFileSync } from "node:child_process";
 
-import { PrismaClient } from "@prisma/client";
 import seedUsers from "../../prisma/seed-data.json";
 
-const testDatabaseUrl = "file:./test.db";
+import { prisma } from "@/lib/db";
 
-process.env.DATABASE_URL = testDatabaseUrl;
-process.env.NODE_ENV = "test";
+const testDatabaseUrl = process.env.DATABASE_URL ?? "file:./test.db";
 
-export const testPrisma = new PrismaClient();
+export const testPrisma = prisma;
 
 export function ensureTestSchema() {
   execFileSync(process.execPath, ["./node_modules/prisma/build/index.js", "db", "push", "--skip-generate"], {

@@ -84,6 +84,17 @@ Open `http://localhost:3000`.
 
 Returns all seeded users and current cached balances.
 
+Successful responses use:
+
+```json
+{
+  "success": true,
+  "data": {
+    "users": []
+  }
+}
+```
+
 ### `POST /api/users/:id/deposit`
 
 Headers:
@@ -104,6 +115,18 @@ Behavior:
 - Updates cached balance inside the same transaction
 - Replays the original response for repeated same-key same-payload requests
 - Returns `409` when the same key is reused with a different payload
+
+Error responses use:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_REQUEST_BODY",
+    "message": "amount must be positive"
+  }
+}
+```
 
 ### `GET /api/bets`
 
@@ -166,6 +189,16 @@ Returns:
 - bet counts by status
 - anomaly list for missing or duplicate accounting side effects
 
+Each anomaly is a structured object:
+
+```json
+{
+  "code": "MISSING_PAYOUT",
+  "betId": 12,
+  "message": "Winning settled bet 12 is missing a payout entry"
+}
+```
+
 ## State Machine
 
 - `PLACED -> SETTLED`
@@ -226,6 +259,8 @@ Covered flows include:
 - reconciliation reports clean normal flow
 - cancelled bets cannot be cancelled twice
 - reconciliation detects cached balance drift
+- route handlers return standard success envelopes
+- route handlers return structured validation errors
 
 ## Git Notes
 
