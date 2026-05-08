@@ -194,6 +194,19 @@ npm run test
 
 The test suite uses a dedicated `Vitest` setup module that initializes a separate SQLite test database before the suite runs, instead of embedding Prisma bootstrap logic inside each test file.
 
+Generate a readable HTML test report:
+
+```bash
+npm run test:report
+```
+
+Generated reports:
+
+- `reports/test-report.html`
+- `reports/coverage/index.html`
+
+The HTML test report uses the official `Vitest` HTML reporter.
+
 Run production build:
 
 ```bash
@@ -223,6 +236,7 @@ Ignored local-only files include:
 - `prisma/*.db-journal`
 - `.next`
 - `coverage`
+- `reports`
 - `node_modules`
 
 That keeps local SQLite files, build output, and dependency folders out of the final commit.
