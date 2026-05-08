@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique
+  balance       Int
+  createdAt     DateTime      @default(now())
+  bets          Bet[]
+  ledgerEntries LedgerEntry[]
+}
+
+model Bet {
+  id               Int               @id @default(autoincrement())
+  userId           Int
+  gameId           String
+  amount           Int
+  status           String            @default("PLACED")
+  settlementResult String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  ledgerEntries    LedgerEntry[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model LedgerEntry {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  betId       Int?
+  type        String
+  amountDelta Int
+  note        String?
+  createdAt   DateTime        @default(now())
+  user        User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  bet         Bet?            @relation(fields: [betId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([betId])
+  @@index([type])
+}
+
+model IdempotencyKey {
+  id                 Int              @id @default(autoincrement())
+  scope              String
+  key                String
+  requestFingerprint String
+  responseCode       Int
+  responseBody       String
+  userId             Int?
+  betId              Int?
+  createdAt          DateTime         @default(now())
+
+  @@unique([scope, key])
+  @@index([userId])
+  @@index([betId])
+}
