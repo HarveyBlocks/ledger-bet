@@ -28,7 +28,7 @@ Ledger Bet is a simplified prediction-market demo built with `Next.js`, `Prisma`
 - `src/lib/services`: transactional business logic
 - `src/lib`: db client, domain constants, validation, errors
 - `prisma/schema.prisma`: database schema
-- `prisma/seed.js`: static user seed
+- `prisma/seed.mjs`: static user seed
 - `tests`: core automated test coverage
 - `docs/implementation-plan.md`: implementation plan
 
@@ -61,7 +61,7 @@ npx prisma db push
 5. Seed static users:
 
 ```bash
-node prisma/seed.js
+node prisma/seed.mjs
 ```
 
 6. Start development server:
@@ -209,6 +209,8 @@ Covered flows include:
 - settled bets cannot be settled twice
 - cancellation refunds balance
 - reconciliation reports clean normal flow
+- cancelled bets cannot be cancelled twice
+- reconciliation detects cached balance drift
 
 ## Git Notes
 

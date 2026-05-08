@@ -1,19 +1,7 @@
-const path = require("node:path");
-const { PrismaClient } = require("@prisma/client");
-
-if (process.env.DATABASE_URL?.startsWith("file:./")) {
-  const relativePath = process.env.DATABASE_URL.slice("file:".length);
-  const absolutePath = path.resolve(process.cwd(), relativePath);
-  process.env.DATABASE_URL = `file:${absolutePath.replace(/\\/g, "/")}`;
-}
+import seedUsers from "./seed-data.json" with { type: "json" };
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-
-const seedUsers = [
-  { username: "alice", balance: 10000 },
-  { username: "bob", balance: 6000 },
-  { username: "charlie", balance: 2500 },
-];
 
 async function main() {
   await prisma.ledgerEntry.deleteMany();
@@ -23,10 +11,7 @@ async function main() {
 
   for (const user of seedUsers) {
     const created = await prisma.user.create({
-      data: {
-        username: user.username,
-        balance: user.balance,
-      },
+      data: user,
     });
 
     await prisma.ledgerEntry.create({

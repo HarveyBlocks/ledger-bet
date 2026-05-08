@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+import seedUsers from "../prisma/seed-data.json" with { type: "json" };
 
 const projectRoot = process.cwd();
 process.env.DATABASE_URL = `file:${path.resolve(projectRoot, "prisma/dev.db").replace(/\\/g, "/")}`;
@@ -28,12 +29,6 @@ async function resetDatabase() {
   await prisma.idempotencyKey.deleteMany();
   await prisma.bet.deleteMany();
   await prisma.user.deleteMany();
-
-  const seedUsers = [
-    { username: "alice", balance: 10000 },
-    { username: "bob", balance: 6000 },
-    { username: "charlie", balance: 2500 },
-  ];
 
   for (const user of seedUsers) {
     const created = await prisma.user.create({
@@ -188,6 +183,38 @@ await runCase("reconcile reports a clean normal flow", async () => {
 
   assert.equal(reconcile.isConsistent, true);
   assert.deepEqual(reconcile.anomalies, []);
+});
+
+await runCase("cancelled bets cannot be cancelled twice", async () => {
+  const bob = await getUserByUsername("bob");
+  const placed = await placeBet(
+    {
+      userId: bob.id,
+      gameId: "repeat-cancel",
+      amount: 300,
+    },
+    "bet-cancel-twice",
+  );
+
+  await cancelBet(placed.body.betId);
+
+  await assert.rejects(
+    () => cancelBet(placed.body.betId),
+    (error) => error?.statusCode === 409,
+  );
+});
+
+await runCase("reconcile detects balance mismatch anomalies", async () => {
+  const alice = await getUserByUsername("alice");
+
+  await prisma.user.update({
+    where: { id: alice.id },
+    data: { balance: 1 },
+  });
+
+  const reconcile = await reconcileUser(alice.id);
+  assert.equal(reconcile.isConsistent, false);
+  assert.ok(reconcile.anomalies.some((item) => item.includes("Cached balance")));
 });
 
 const failures = results.filter((result) => !result.ok);
