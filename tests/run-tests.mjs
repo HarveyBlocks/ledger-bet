@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import path from "node:path";
+import { execFileSync } from "node:child_process";
 import seedUsers from "../prisma/seed-data.json" with { type: "json" };
 
-const projectRoot = process.cwd();
-process.env.DATABASE_URL = `file:${path.resolve(projectRoot, "prisma/dev.db").replace(/\\/g, "/")}`;
+const testDatabaseUrl = "file:./test.db";
+process.env.DATABASE_URL = testDatabaseUrl;
 process.env.NODE_ENV = "test";
 
 const { prisma } = await import("../src/lib/db.ts");
@@ -17,6 +17,17 @@ const {
 const { SETTLEMENT_RESULT } = await import("../src/lib/domain.ts");
 
 const results = [];
+
+function ensureTestSchema() {
+  execFileSync(process.execPath, ["./node_modules/prisma/build/index.js", "db", "push", "--skip-generate"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      DATABASE_URL: testDatabaseUrl,
+    },
+    stdio: "ignore",
+  });
+}
 
 async function getUserByUsername(username) {
   return prisma.user.findUniqueOrThrow({
@@ -45,6 +56,8 @@ async function resetDatabase() {
     });
   }
 }
+
+ensureTestSchema();
 
 async function runCase(name, fn) {
   try {
